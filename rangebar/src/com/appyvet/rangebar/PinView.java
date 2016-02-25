@@ -21,6 +21,7 @@ import android.graphics.LightingColorFilter;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
+import android.support.v4.content.ContextCompat;
 import android.util.TypedValue;
 import android.view.View;
 
@@ -76,9 +77,21 @@ class PinView extends View {
 
     private Resources mRes;
 
+    private float mDensity;
+
     private Paint mCirclePaint;
 
     private float mCircleRadiusPx;
+
+    private IRangeBarFormatter formatter;
+
+    private float mMinPinFont = RangeBar.DEFAULT_MIN_PIN_FONT_SP;
+
+    private float mMaxPinFont = RangeBar.DEFAULT_MAX_PIN_FONT_SP;
+
+    private boolean mPinsAreTemporary;
+
+    private boolean mHasBeenPressed = false;
 
     // Constructors ////////////////////////////////////////////////////////////
 
@@ -87,6 +100,10 @@ class PinView extends View {
     }
 
     // Initialization //////////////////////////////////////////////////////////
+
+    public void setFormatter(IRangeBarFormatter mFormatter) {
+        this.formatter = mFormatter;
+    }
 
     /**
      * The view is created empty with a default constructor. Use init to set all the initial
@@ -98,12 +115,20 @@ class PinView extends View {
      * @param pinColor     the color of the pin
      * @param textColor    the color of the value text in the pin
      * @param circleRadius the radius of the selector circle
-     * @param circleColor  the color of the selector circle
+     * @param minFont  the minimum font size for the pin text
+     * @param maxFont  the maximum font size for the pin text
+     * @param pinsAreTemporary  whether to show the pin initially or just the circle
      */
     public void init(Context ctx, float y, float pinRadiusDP, int pinColor, int textColor,
-            float circleRadius, int circleColor) {
+            float circleRadius, int circleColor, float minFont, float maxFont, boolean pinsAreTemporary) {
+
         mRes = ctx.getResources();
-        mPin = ctx.getResources().getDrawable(R.drawable.rotate);
+        mPin = ContextCompat.getDrawable(ctx, R.drawable.rotate);
+
+        mDensity = getResources().getDisplayMetrics().density;
+        mMinPinFont = minFont / mDensity;
+        mMaxPinFont = maxFont / mDensity;
+        mPinsAreTemporary = pinsAreTemporary;
 
         mPinPadding = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
                 15, mRes.getDisplayMetrics());
@@ -195,6 +220,7 @@ class PinView extends View {
      */
     public void press() {
         mIsPressed = true;
+        mHasBeenPressed = true;
     }
 
     /**
@@ -235,16 +261,18 @@ class PinView extends View {
     public void draw(Canvas canvas) {
         canvas.drawCircle(mX, mY, mCircleRadiusPx, mCirclePaint);
         //Draw pin if pressed
-        if (mPinRadiusPx > 0) {
+        if (mPinRadiusPx > 0 && (mHasBeenPressed || !mPinsAreTemporary)) {
             mBounds.set((int) mX - mPinRadiusPx,
                     (int) mY - (mPinRadiusPx * 2) - (int) mPinPadding,
                     (int) mX + mPinRadiusPx, (int) mY - (int) mPinPadding);
             mPin.setBounds(mBounds);
             String text = mValue;
-            if (mValue.length() > 4) {
-                text = mValue.substring(0, 4);
+
+            if (this.formatter != null) {
+                text = formatter.format(text);
             }
-            calibrateTextSize(mTextPaint, text, 8, 24, mBounds.width());
+
+            calibrateTextSize(mTextPaint, text, mBounds.width());
             mTextPaint.getTextBounds(text, 0, text.length(), mBounds);
             mTextPaint.setTextAlign(Paint.Align.CENTER);
             mPin.setColorFilter(mPinFilter);
@@ -253,14 +281,23 @@ class PinView extends View {
                     mX, mY - mPinRadiusPx - mPinPadding + mTextYPadding,
                     mTextPaint);
         }
+        super.draw(canvas);
     }
 
     // Private Methods /////////////////////////////////////////////////////////////////
 
     //Set text size based on available pin width.
-    private static void calibrateTextSize(Paint paint, String text, float min, float max,
-            float boxWidth) {
+    private void calibrateTextSize(Paint paint, String text, float boxWidth) {
         paint.setTextSize(10);
-        paint.setTextSize(Math.max(Math.min((boxWidth / paint.measureText(text)) * 10, max), min));
+
+        float textSize = paint.measureText(text);
+        float estimatedFontSize = boxWidth * 8 / textSize / mDensity;
+
+        if (estimatedFontSize < mMinPinFont) {
+            estimatedFontSize = mMinPinFont;
+        } else if (estimatedFontSize > mMaxPinFont) {
+            estimatedFontSize = mMaxPinFont;
+        }
+        paint.setTextSize(estimatedFontSize * mDensity);
     }
 }
