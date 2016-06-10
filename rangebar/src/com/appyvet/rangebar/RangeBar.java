@@ -1270,11 +1270,9 @@ public class RangeBar extends View {
             float leftThumbXDistance = mIsRangeBar ? Math.abs(mLeftThumb.getX() - x) : 0;
             float rightThumbXDistance = Math.abs(mRightThumb.getX() - x);
 
-            if (leftThumbXDistance < rightThumbXDistance) {
-                if (mIsRangeBar) {
-                    movePin(mLeftThumb, x);
-                    releasePin(mLeftThumb);
-                }
+            if (leftThumbXDistance < rightThumbXDistance && mIsRangeBar) {
+                mLeftThumb.setX(x);
+                releasePin(mLeftThumb);
             } else {
                 movePin(mRightThumb, x);
                 releasePin(mRightThumb);
@@ -1464,7 +1462,7 @@ public class RangeBar extends View {
     public interface OnRangeBarChangeListener {
 
         public void onRangeChangeListener(RangeBar rangeBar, int leftPinIndex,
-                int rightPinIndex, String leftPinValue, String rightPinValue);
+                                          int rightPinIndex, String leftPinValue, String rightPinValue);
     }
 
     public interface PinTextFormatter {
